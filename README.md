@@ -65,7 +65,7 @@ python3 plex2nfo.py ~/.plex2nfo/config 0 1
 
 ## License
 
-[MIT][License]
+[MIT](LICENSE)
 
 ## References
 
