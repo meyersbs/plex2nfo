@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+
+#### PYTHON IMPORTS ################################################################################
+import os
+import sys
+
+
+#### PACKAGE IMPORTS ###############################################################################
+from plexapi.server import PlexServer
+
+
+#### GLOBALS #######################################################################################
+CONFIGS_PATH = None
+DRY_RUN = None
+OVERWRITE_NFO = None
+PLEX = None
+MOVIE_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<movie>
+    <title>{title}</title>
+    <sorttitle>{titleSort}</sorttitle>
+    <plot>{summary}</plot>
+    <releasedate>{originallyAvailableAt}</releasedate>
+    <year>{year}</year>
+    <edition>{edition}</edition>
+</movie>
+"""
+SHOW_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<tvshow>
+    <title>{title}</title>
+    <sorttitle>{titleSort}</sorttitle>
+    <plot>{summary}</plot>
+    <releasedate>{originallyAvailableAt}</releasedate>
+    <year>{year}</year>
+    <edition>{edition}</edition>
+</tvshow>
+"""
+EPISODE_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<episodedetails>
+    <title>{title}</title>
+    <season>{parentIndex}</season>
+    <episode>{index}</episode>
+    <plot>{summary}</plot>
+    <aired>{originallyAvailableAt}</aired>
+</episodedetails>
+"""
+
+
+#### FUNCTIONS #####################################################################################
+def createServer(configs_path):
+    """
+    Set up server connection.
+    """
+    with open(configs_path, "r") as f:
+        lines = f.readlines()
+        baseurl = lines[0].rstrip()
+        token = lines[1].rstrip()
+        plex = PlexServer(baseurl, token)
+
+    return plex
+
+
+def getLibraries():
+    """
+    Get a list of libraries.
+    """
+    libraries = list()
+    for section in PLEX.library.sections():
+        libraries.append(section)
+
+    return libraries
+
+
+def getTVLibraries():
+    """
+    Get a list of TV libraries.
+    """
+    tv_libraries = list()
+    tv_libraries = [section for section in PLEX.library.sections() if section.type == "show"]
+    print(tv_libraries)
+    return tv_libraries
+
+
+def getMovieLibraries():
+    """
+    Get a list of Movie libraries.
+    """
+    movie_libraries = list()
+    movie_libraries = [section for section in PLEX.library.sections() if section.type == "movie"]
+    return movie_libraries
+
+
+def getListLibraryItems(library):
+    """
+    Get a list of Library items (e.g. shows, movies).
+    """
+    items = list()
+    items = [item for item in library.all()]
+    return items
+
+
+def writeMovieNfoToDisk(location, payload):
+    """
+    Write 'movie.nfo' files to disk.
+    """
+    loc = os.path.join(location, "movie.nfo")
+    print(loc)
+    if OVERWRITE_NFO:
+        with open(loc, "w") as f:
+            f.write(payload)
+    else:
+        if not os.path.exists(loc):
+            with open(loc, "w") as f:
+                f.write(payload)
+
+
+def writeShowNfoToDisk(location, payload):
+    """
+    Write 'tvshow.nfo' files to disk.
+    """
+    loc = os.path.join(location, "tvshow.nfo")
+    print(loc)
+    if OVERWRITE_NFO:
+        with open(loc, "w") as f:
+            f.write(payload)
+    else:
+        if not os.path.exists(loc):
+            with open(loc, "w") as f:
+                f.write(payload)
+
+
+def writeEpisodeNfoToDisk(location, payload):
+    """
+    Write episode NFO files to disk.
+    """
+    loc = os.path.splitext(location)[0] + ".nfo"
+    print(loc)
+    if OVERWRITE_NFO:
+        with open(loc, "w") as f:
+            f.write(payload)
+    else:
+        if not os.path.exists(loc):
+            with open(loc, "w") as f:
+                f.write(payload)
+
+
+def writeMovieNfo(dry_run=True):
+    """
+    Write Movie NFO files to disk.
+    """
+    # Get a list of all Movie libraries
+    movie_libraries = getMovieLibraries()
+    for movie_library in movie_libraries:
+        for movie in getListLibraryItems(movie_library):
+            movie_nfo_string = MOVIE_NFO_STRING.format(
+                title=movie.title,
+                titleSort=movie.titleSort,
+                year=movie.year,
+                originallyAvailableAt=movie.originallyAvailableAt.strftime("%Y-%m-%d"),
+                summary=movie.summary,
+                edition=movie.editionTitle,
+            )
+            if dry_run:
+                print(movie.locations[0])
+                print(movie_nfo_string)
+            if not dry_run:
+                writeMovieNfoToDisk(movie.locations[0], movie_nfo_string)
+
+
+def writeTVnfo(dry_run=True):
+    """
+    Write TV NFO files to disk.
+    """
+    # Get a list of all TV libraries
+    tv_libraries = getTVLibraries()
+    for tv_library in tv_libraries:
+        # For every TV show, grab the metadata I care about and shove it into a NFO format string
+        for show in getListLibraryItems(tv_library):
+            show_nfo_string = SHOW_NFO_STRING.format(
+                title=show.title,
+                titleSort=show.titleSort,
+                year=show.year,
+                originallyAvailableAt=show.originallyAvailableAt.strftime("%Y-%m-%d"),
+                summary=show.summary
+                edition=show.editionTitle,
+            )
+            if dry_run:
+                print(show.locations[0])
+                print(show_nfo_string)
+            if not dry_run:
+                writeShowNfoToDisk(show.locations[0], show_nfo_string)
+
+            # For every episode in a show, grab the metadata I care about and shove it into a NFO
+            # format string
+            episodes = show.episodes()
+            for episode in episodes:
+                episode_nfo_string = EPISODE_NFO_STRING.format(
+                    title=episode.title,
+                    summary=episode.summary,
+                    originallyAvailableAt=show.originallyAvailableAt.strftime("%Y-%m-%d"),
+                    index=episode.index,
+                    parentIndex=episode.parentIndex
+                )
+                if dry_run:
+                    print(os.path.splitext(episode.locations[0])[0] + ".nfo")
+                    print(episode_nfo_string)
+                if not dry_run:
+                    writeEpisodeNfoToDisk(episode.locations[0], episode_nfo_string)
+
+
+#### MAIN ##########################################################################################
+if __name__ == "__main__":
+    args = sys.argv[1:]
+    CONFIGS_PATH = args[0]
+    DRY_RUN = bool(args[1])
+    OVERWRITE_NFO = bool(args[2])
+    PLEX = createServer(CONFIGS_PATH)
+    print(PLEX)
+    writeTVnfo(dry_run=DRY_RUN)
+    writeMovieNfo(dry_run=DRY_RUN)
+
