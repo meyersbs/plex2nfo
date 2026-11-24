@@ -38,8 +38,8 @@ B-6DGpm_fK8xYTQNOPgT
 
 Command line takes two arguments:
 - Config File: Path to the configuration file containing your baseurl and X-Plex-Token
-- Dry Run: Boolean. False = Write NFO files to disk. True = Print out what would be written to disk, but don't actually do it.
-- Overwrite NFO: Boolean. True = Overwrite existing NFO files. False = Don't overwrite existing NFO files.
+- Dry Run: Boolean. 0 = Write NFO files to disk. 1 = Print out what would be written to disk, but don't actually do it.
+- Overwrite NFO: Boolean. 1 = Overwrite existing NFO files. 0 = Don't overwrite existing NFO files.
 
 ```
 python3 plex2nfo.py ~/.plex2nfo/config True False

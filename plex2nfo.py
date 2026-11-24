@@ -98,11 +98,25 @@ def getListLibraryItems(library):
     return items
 
 
+def formatDate(date):
+    if date is None:
+        return "1800-00-00"
+    else:
+        return date.strftime("%Y-%d-%m")
+
+
+def formatEdition(edition):
+    if edition is None:
+        return ""
+    else:
+        return edition
+
+
 def writeMovieNfoToDisk(location, payload):
     """
     Write 'movie.nfo' files to disk.
     """
-    loc = os.path.join(location, "movie.nfo")
+    loc = os.path.splitext(location)[0] + ".nfo"
     print(loc)
     if OVERWRITE_NFO:
         with open(loc, "w") as f:
@@ -155,9 +169,9 @@ def writeMovieNfo(dry_run=True):
                 title=movie.title,
                 titleSort=movie.titleSort,
                 year=movie.year,
-                originallyAvailableAt=movie.originallyAvailableAt.strftime("%Y-%m-%d"),
+                originallyAvailableAt=formatDate(movie.originallyAvailableAt),
                 summary=movie.summary,
-                edition=movie.editionTitle,
+                edition=formatEdition(movie.editionTitle),
             )
             if dry_run:
                 print(movie.locations[0])
@@ -179,9 +193,9 @@ def writeTVnfo(dry_run=True):
                 title=show.title,
                 titleSort=show.titleSort,
                 year=show.year,
-                originallyAvailableAt=show.originallyAvailableAt.strftime("%Y-%m-%d"),
-                summary=show.summary
-                edition=show.editionTitle,
+                originallyAvailableAt=formatDate(show.originallyAvailableAt),
+                summary=show.summary,
+                edition=formatEdition(show.editionTitle),
             )
             if dry_run:
                 print(show.locations[0])
@@ -196,7 +210,7 @@ def writeTVnfo(dry_run=True):
                 episode_nfo_string = EPISODE_NFO_STRING.format(
                     title=episode.title,
                     summary=episode.summary,
-                    originallyAvailableAt=show.originallyAvailableAt.strftime("%Y-%m-%d"),
+                    originallyAvailableAt=formatDate(show.originallyAvailableAt),
                     index=episode.index,
                     parentIndex=episode.parentIndex
                 )
@@ -210,9 +224,13 @@ def writeTVnfo(dry_run=True):
 #### MAIN ##########################################################################################
 if __name__ == "__main__":
     args = sys.argv[1:]
+    print(args)
     CONFIGS_PATH = args[0]
-    DRY_RUN = bool(args[1])
-    OVERWRITE_NFO = bool(args[2])
+    print(CONFIGS_PATH)
+    DRY_RUN = bool(int(args[1]))
+    print(DRY_RUN)
+    OVERWRITE_NFO = bool(int(args[2]))
+    print(OVERWRITE_NFO)
     PLEX = createServer(CONFIGS_PATH)
     print(PLEX)
     writeTVnfo(dry_run=DRY_RUN)
