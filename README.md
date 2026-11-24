@@ -41,8 +41,19 @@ Command line takes two arguments:
 - Dry Run: Boolean. 0 = Write NFO files to disk. 1 = Print out what would be written to disk, but don't actually do it.
 - Overwrite NFO: Boolean. 1 = Overwrite existing NFO files. 0 = Don't overwrite existing NFO files.
 
+Do a dry run without writing any data to disk:
 ```
-python3 plex2nfo.py ~/.plex2nfo/config True False
+python3 plex2nfo.py ~/.plex2nfo/config 1 0
+```
+
+Write NFO files to disk without overwriting existing NFO files:
+```
+python3 plex2nfo.py ~/.plex2nfo/config 0 0
+```
+
+Write NFO files to disk with overwriting enabled:
+```
+python3 plex2nfo.py ~/.plex2nfo/config 0 1
 ```
 
 ## Notes
