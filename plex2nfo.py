@@ -3,6 +3,8 @@
 #### PYTHON IMPORTS ################################################################################
 import os
 import sys
+from collections import defaultdict
+from xml.sax.saxutils import escape
 
 
 #### PACKAGE IMPORTS ###############################################################################
@@ -31,11 +33,13 @@ SHOW_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <plot>{summary}</plot>
     <releasedate>{originallyAvailableAt}</releasedate>
     <year>{year}</year>
-    <edition>{edition}</edition>
 </tvshow>
 """
-EPISODE_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<episodedetails>
+XML_DECLARATION = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+"""
+# A file holding several episodes (e.g. S01E01-E02) gets one <episodedetails> per episode,
+# all in the same .nfo, so this template has no XML declaration of its own.
+EPISODE_NFO_STRING = """<episodedetails>
     <title>{title}</title>
     <season>{parentIndex}</season>
     <episode>{index}</episode>
@@ -100,16 +104,19 @@ def getListLibraryItems(library):
 
 def formatDate(date):
     if date is None:
-        return "1800-00-00"
-    else:
-        return date.strftime("%Y-%d-%m")
-
-
-def formatEdition(edition):
-    if edition is None:
         return ""
     else:
-        return edition
+        return date.strftime("%Y-%m-%d")
+
+
+def formatText(text):
+    """
+    Escape &, < and > so titles and summaries can't produce invalid XML.
+    """
+    if text is None:
+        return ""
+    else:
+        return escape(str(text))
 
 
 def writeMovieNfoToDisk(location, payload):
@@ -166,12 +173,12 @@ def writeMovieNfo(dry_run=True):
     for movie_library in movie_libraries:
         for movie in getListLibraryItems(movie_library):
             movie_nfo_string = MOVIE_NFO_STRING.format(
-                title=movie.title,
-                titleSort=movie.titleSort,
-                year=movie.year,
+                title=formatText(movie.title),
+                titleSort=formatText(movie.titleSort),
+                year=formatText(movie.year),
                 originallyAvailableAt=formatDate(movie.originallyAvailableAt),
-                summary=movie.summary,
-                edition=formatEdition(movie.editionTitle),
+                summary=formatText(movie.summary),
+                edition=formatText(movie.editionTitle),
             )
             if dry_run:
                 print(movie.locations[0])
@@ -189,36 +196,47 @@ def writeTVnfo(dry_run=True):
     for tv_library in tv_libraries:
         # For every TV show, grab the metadata I care about and shove it into a NFO format string
         for show in getListLibraryItems(tv_library):
+            # Shows have no edition in plexapi (only movies do); show.editionTitle raised
+            # AttributeError and stopped the run at the first show.
             show_nfo_string = SHOW_NFO_STRING.format(
-                title=show.title,
-                titleSort=show.titleSort,
-                year=show.year,
+                title=formatText(show.title),
+                titleSort=formatText(show.titleSort),
+                year=formatText(show.year),
                 originallyAvailableAt=formatDate(show.originallyAvailableAt),
-                summary=show.summary,
-                edition=formatEdition(show.editionTitle),
+                summary=formatText(show.summary),
             )
-            if dry_run:
+            # Plex reports no show folder when episode files sit directly in the library root;
+            # there is nowhere sensible for tvshow.nfo then, but the episodes still get theirs.
+            if not show.locations:
+                print(f"No folder for show '{show.title}', skipping tvshow.nfo")
+            elif dry_run:
                 print(show.locations[0])
                 print(show_nfo_string)
-            if not dry_run:
+            else:
                 writeShowNfoToDisk(show.locations[0], show_nfo_string)
 
             # For every episode in a show, grab the metadata I care about and shove it into a NFO
             # format string
-            episodes = show.episodes()
-            for episode in episodes:
+            # Group by file first: a multi-episode file has several episodes, and writing them
+            # one at a time made each overwrite the previous one's .nfo.
+            episodes_by_file = defaultdict(list)
+            for episode in show.episodes():
                 episode_nfo_string = EPISODE_NFO_STRING.format(
-                    title=episode.title,
-                    summary=episode.summary,
-                    originallyAvailableAt=formatDate(show.originallyAvailableAt),
-                    index=episode.index,
-                    parentIndex=episode.parentIndex
+                    title=formatText(episode.title),
+                    summary=formatText(episode.summary),
+                    # The episode's own air date (was the show's premiere date for every episode)
+                    originallyAvailableAt=formatDate(episode.originallyAvailableAt),
+                    index=formatText(episode.index),
+                    parentIndex=formatText(episode.parentIndex)
                 )
+                episodes_by_file[episode.locations[0]].append(episode_nfo_string)
+            for location, episode_nfo_strings in episodes_by_file.items():
+                episode_nfo_string = XML_DECLARATION + "".join(episode_nfo_strings)
                 if dry_run:
-                    print(os.path.splitext(episode.locations[0])[0] + ".nfo")
+                    print(os.path.splitext(location)[0] + ".nfo")
                     print(episode_nfo_string)
                 if not dry_run:
-                    writeEpisodeNfoToDisk(episode.locations[0], episode_nfo_string)
+                    writeEpisodeNfoToDisk(location, episode_nfo_string)
 
 
 #### MAIN ##########################################################################################
