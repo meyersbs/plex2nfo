@@ -110,7 +110,7 @@ def formatDate(date):
     Format datetime.datetime objects. Replace bad values.
     """
     if date is None:
-        return "1800-00-00"
+        return ""
     else:
         return date.strftime("%Y-%d-%m")
 
