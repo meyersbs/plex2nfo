@@ -13,6 +13,7 @@ from plexapi.server import PlexServer
 CONFIGS_PATH = None
 DRY_RUN = None
 OVERWRITE_NFO = None
+VERBOSE = None
 PLEX = None
 MOVIE_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <movie>
@@ -43,6 +44,24 @@ EPISODE_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <aired>{originallyAvailableAt}</aired>
 </episodedetails>
 """
+STATS = {
+    "MOVIE": {
+        "wrote": 0,
+        "overwrote": 0,
+        "skipped": 0,
+    },
+    "SHOW": {
+        "wrote": 0,
+        "overwrote": 0,
+        "skipped": 0,
+    },
+    "EPISODE": {
+        "wrote": 0,
+        "overwrote": 0,
+        "skipped": 0,
+    },
+
+}
 
 
 #### FUNCTIONS #####################################################################################
@@ -59,24 +78,12 @@ def createServer(configs_path):
     return plex
 
 
-def getLibraries():
-    """
-    Get a list of libraries.
-    """
-    libraries = list()
-    for section in PLEX.library.sections():
-        libraries.append(section)
-
-    return libraries
-
-
 def getTVLibraries():
     """
     Get a list of TV libraries.
     """
     tv_libraries = list()
     tv_libraries = [section for section in PLEX.library.sections() if section.type == "show"]
-    print(tv_libraries)
     return tv_libraries
 
 
@@ -99,6 +106,9 @@ def getListLibraryItems(library):
 
 
 def formatDate(date):
+    """
+    Format datetime.datetime objects. Replace bad values.
+    """
     if date is None:
         return "1800-00-00"
     else:
@@ -106,55 +116,42 @@ def formatDate(date):
 
 
 def formatEdition(edition):
+    """
+    Format edition informaton. Replace bad values.
+    """
     if edition is None:
         return ""
     else:
         return edition
 
 
-def writeMovieNfoToDisk(location, payload):
+def writeNfoToDisk(location, payload, kind):
     """
-    Write 'movie.nfo' files to disk.
+    Write NFO files to disk.
     """
-    loc = os.path.splitext(location)[0] + ".nfo"
-    print(loc)
-    if OVERWRITE_NFO:
-        with open(loc, "w") as f:
-            f.write(payload)
-    else:
-        if not os.path.exists(loc):
+    loc = None
+    if kind == "EPISODE":
+        loc = os.path.splitext(location)[0] + ".nfo"
+    elif kind == "SHOW":
+        loc = os.path.join(location, "tvshow.nfo")
+    elif kind == "MOVIE":
+        loc = os.path.splitext(location)[0] + ".nfo"
+
+    if os.path.exists(loc):
+        if OVERWRITE_NFO:
+            print("OVERWRITE: {}".format(loc))
+            STATS[kind]["overwrote"] += 1
             with open(loc, "w") as f:
                 f.write(payload)
-
-
-def writeShowNfoToDisk(location, payload):
-    """
-    Write 'tvshow.nfo' files to disk.
-    """
-    loc = os.path.join(location, "tvshow.nfo")
-    print(loc)
-    if OVERWRITE_NFO:
+        else:
+            if VERBOSE:
+                print("SKIPPING: {}".format(loc))
+            STATS[kind]["skipped"] += 1
+    else:
+        print("WRITE: {}".format(loc))
+        STATS[kind]["wrote"] += 1
         with open(loc, "w") as f:
             f.write(payload)
-    else:
-        if not os.path.exists(loc):
-            with open(loc, "w") as f:
-                f.write(payload)
-
-
-def writeEpisodeNfoToDisk(location, payload):
-    """
-    Write episode NFO files to disk.
-    """
-    loc = os.path.splitext(location)[0] + ".nfo"
-    print(loc)
-    if OVERWRITE_NFO:
-        with open(loc, "w") as f:
-            f.write(payload)
-    else:
-        if not os.path.exists(loc):
-            with open(loc, "w") as f:
-                f.write(payload)
 
 
 def writeMovieNfo(dry_run=True):
@@ -163,8 +160,15 @@ def writeMovieNfo(dry_run=True):
     """
     # Get a list of all Movie libraries
     movie_libraries = getMovieLibraries()
+    print("\nExploring {} Movie Libraries...".format(len(movie_libraries)))
+    print("--------")
     for movie_library in movie_libraries:
-        for movie in getListLibraryItems(movie_library):
+        print("Library: {}".format(movie_library.title))
+        movies = getListLibraryItems(movie_library)
+        print("  Found {} Movies...".format(len(movies)))
+        for movie in movies:
+            if VERBOSE:
+                print("    Movie: {}...".format(movie.title))
             movie_nfo_string = MOVIE_NFO_STRING.format(
                 title=movie.title,
                 titleSort=movie.titleSort,
@@ -177,7 +181,8 @@ def writeMovieNfo(dry_run=True):
                 print(movie.locations[0])
                 print(movie_nfo_string)
             if not dry_run:
-                writeMovieNfoToDisk(movie.locations[0], movie_nfo_string)
+                writeNfoToDisk(movie.locations[0], movie_nfo_string, "MOVIE")
+    print("--------")
 
 
 def writeTVnfo(dry_run=True):
@@ -186,9 +191,16 @@ def writeTVnfo(dry_run=True):
     """
     # Get a list of all TV libraries
     tv_libraries = getTVLibraries()
+    print("\nExploring {} TV Libraries...".format(len(tv_libraries)))
+    print("--------")
     for tv_library in tv_libraries:
         # For every TV show, grab the metadata I care about and shove it into a NFO format string
-        for show in getListLibraryItems(tv_library):
+        print("Library: {}".format(tv_library.title))
+        shows = getListLibraryItems(tv_library)
+        print("  Found {} TV Shows...".format(len(shows)))
+        for show in shows:
+            if VERBOSE:
+                print("    Show: {}...".format(show.title))
             show_nfo_string = SHOW_NFO_STRING.format(
                 title=show.title,
                 titleSort=show.titleSort,
@@ -201,12 +213,16 @@ def writeTVnfo(dry_run=True):
                 print(show.locations[0])
                 print(show_nfo_string)
             if not dry_run:
-                writeShowNfoToDisk(show.locations[0], show_nfo_string)
+                writeNfoToDisk(show.locations[0], show_nfo_string, "SHOW")
 
             # For every episode in a show, grab the metadata I care about and shove it into a NFO
             # format string
             episodes = show.episodes()
+            if VERBOSE:
+                print("      Found {} Episodes...".format(len(episodes)))
             for episode in episodes:
+                if VERBOSE:
+                    print("        Episode: {}...".format(episode.title))
                 episode_nfo_string = EPISODE_NFO_STRING.format(
                     title=episode.title,
                     summary=episode.summary,
@@ -218,21 +234,46 @@ def writeTVnfo(dry_run=True):
                     print(os.path.splitext(episode.locations[0])[0] + ".nfo")
                     print(episode_nfo_string)
                 if not dry_run:
-                    writeEpisodeNfoToDisk(episode.locations[0], episode_nfo_string)
+                    writeNfoToDisk(episode.locations[0], episode_nfo_string, "EPISODE")
+    print("--------")
+
+
+def printStats():
+    """
+    Print write, overwrite, and skip statistics.
+    """
+    print("Statistics:")
+    print("\n--------")
+    print("Movies:")
+    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}".format(STATS["MOVIE"]["wrote"], STATS["MOVIE"]["overwrote"], STATS["MOVIE"]["skipped"]))
+    print("Shows:")
+    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}".format(STATS["SHOW"]["wrote"], STATS["SHOW"]["overwrote"], STATS["SHOW"]["skipped"]))
+    print("Episodes:")
+    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}".format(STATS["EPISODE"]["wrote"], STATS["EPISODE"]["overwrote"], STATS["EPISODE"]["skipped"]))
+    print("--------\n")
 
 
 #### MAIN ##########################################################################################
 if __name__ == "__main__":
     args = sys.argv[1:]
-    print(args)
+    print("ARGS: {}".format(args))
     CONFIGS_PATH = args[0]
-    print(CONFIGS_PATH)
     DRY_RUN = bool(int(args[1]))
-    print(DRY_RUN)
     OVERWRITE_NFO = bool(int(args[2]))
-    print(OVERWRITE_NFO)
+    VERBOSE = bool(int(args[3]))
     PLEX = createServer(CONFIGS_PATH)
-    print(PLEX)
+
+    if VERBOSE:
+        print("\n--------")
+        print("CONFIGS: {}".format(CONFIGS_PATH))
+        print("DRY_RUN: {}".format(DRY_RUN))
+        print("OVERWRITE: {}".format(OVERWRITE_NFO))
+        print("VERBOSE: {}".format(VERBOSE))
+        print("PLEX: {}".format(PLEX))
+        print("--------\n")
+
     writeTVnfo(dry_run=DRY_RUN)
     writeMovieNfo(dry_run=DRY_RUN)
+
+    printStats()
 

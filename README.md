@@ -40,20 +40,21 @@ Command line takes two arguments:
 - Config File: Path to the configuration file containing your baseurl and X-Plex-Token
 - Dry Run: Boolean. 0 = Write NFO files to disk. 1 = Print out what would be written to disk, but don't actually do it.
 - Overwrite NFO: Boolean. 1 = Overwrite existing NFO files. 0 = Don't overwrite existing NFO files.
+- Verbose Output: Boolean. 0 = Don't show excessive output. 1 = Show excessive output.
 
-Do a dry run without writing any data to disk:
+Do a dry run without writing any data to disk, normal output:
 ```
-python3 plex2nfo.py ~/.plex2nfo/config 1 0
-```
-
-Write NFO files to disk without overwriting existing NFO files:
-```
-python3 plex2nfo.py ~/.plex2nfo/config 0 0
+python3 plex2nfo.py ~/.plex2nfo/config 1 0 0
 ```
 
-Write NFO files to disk with overwriting enabled:
+Write NFO files to disk without overwriting existing NFO files, normal output:
 ```
-python3 plex2nfo.py ~/.plex2nfo/config 0 1
+python3 plex2nfo.py ~/.plex2nfo/config 0 0 0
+```
+
+Write NFO files to disk with overwriting enabled, verbose output:
+```
+python3 plex2nfo.py ~/.plex2nfo/config 0 1 1
 ```
 
 ## Notes
