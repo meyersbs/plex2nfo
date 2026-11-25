@@ -64,6 +64,10 @@ python3 plex2nfo.py ~/.plex2nfo/config 0 1 1
 - This does not write all of the metadata available for a file, only the ones that I (and I assume others) are likely to modify by hand, e.g. title, summary, air date. If you want to write others, I welcome pull requests.
 - This code does not write posters or thumbnails to disk since I do that manually when I add a new show/movie. If you want that functionality, I welcome pull requests.
 
+## Contribute
+
+I welcome pull requests for additional features. Pull requests that contain AI written code will not be merged.
+
 ## License
 
 [MIT](LICENSE)
