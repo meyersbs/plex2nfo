@@ -3,6 +3,7 @@
 #### PYTHON IMPORTS ################################################################################
 import os
 import sys
+from xml.sax.saxutils import escape
 
 
 #### PACKAGE IMPORTS ###############################################################################
@@ -105,6 +106,18 @@ def getListLibraryItems(library):
     return items
 
 
+def formatText(text):
+    """
+    Escape special characters that break XML.
+
+    Contributed by: svwhisper
+    """
+    if text is None:
+        return ""
+    else:
+        return escape(str(text))
+
+
 def formatDate(date):
     """
     Format datetime.datetime objects. Replace bad values.
@@ -112,7 +125,7 @@ def formatDate(date):
     if date is None:
         return ""
     else:
-        return date.strftime("%Y-%d-%m")
+        return date.strftime("%Y-%m-%d")
 
 
 def formatEdition(edition):
@@ -122,7 +135,7 @@ def formatEdition(edition):
     if edition is None:
         return ""
     else:
-        return edition
+        return formatText(edition)
 
 
 def writeNfoToDisk(location, payload, kind):
@@ -170,8 +183,8 @@ def writeMovieNfo(dry_run=True):
             if VERBOSE:
                 print("    Movie: {}...".format(movie.title))
             movie_nfo_string = MOVIE_NFO_STRING.format(
-                title=movie.title,
-                titleSort=movie.titleSort,
+                title=formatText(movie.title),
+                titleSort=formatText(movie.titleSort),
                 year=movie.year,
                 originallyAvailableAt=formatDate(movie.originallyAvailableAt),
                 summary=movie.summary,
@@ -202,12 +215,11 @@ def writeTVnfo(dry_run=True):
             if VERBOSE:
                 print("    Show: {}...".format(show.title))
             show_nfo_string = SHOW_NFO_STRING.format(
-                title=show.title,
-                titleSort=show.titleSort,
+                title=formatText(show.title),
+                titleSort=formatText(show.titleSort),
                 year=show.year,
                 originallyAvailableAt=formatDate(show.originallyAvailableAt),
-                summary=show.summary,
-                edition=formatEdition(show.editionTitle),
+                summary=show.summary
             )
             if dry_run:
                 print(show.locations[0])
@@ -224,8 +236,8 @@ def writeTVnfo(dry_run=True):
                 if VERBOSE:
                     print("        Episode: {}...".format(episode.title))
                 episode_nfo_string = EPISODE_NFO_STRING.format(
-                    title=episode.title,
-                    summary=episode.summary,
+                    title=formatText(episode.title),
+                    summary=formatText(episode.summary),
                     originallyAvailableAt=formatDate(show.originallyAvailableAt),
                     index=episode.index,
                     parentIndex=episode.parentIndex
