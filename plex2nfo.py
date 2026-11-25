@@ -33,7 +33,6 @@ SHOW_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <plot>{summary}</plot>
     <releasedate>{originallyAvailableAt}</releasedate>
     <year>{year}</year>
-    <edition>{edition}</edition>
 </tvshow>
 """
 EPISODE_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -50,19 +49,23 @@ STATS = {
         "wrote": 0,
         "overwrote": 0,
         "skipped": 0,
+        "failed": 0,
     },
     "SHOW": {
         "wrote": 0,
         "overwrote": 0,
         "skipped": 0,
+        "failed": 0,
     },
     "EPISODE": {
         "wrote": 0,
         "overwrote": 0,
         "skipped": 0,
+        "failed": 0,
     },
 
 }
+FAILURES = list()
 
 
 #### FUNCTIONS #####################################################################################
@@ -138,6 +141,26 @@ def formatEdition(edition):
         return formatText(edition)
 
 
+def writeToDisk(loc, payload, kind, write_type):
+    """
+    Helper function to handle PermissionErrors on write.
+    """
+    try:
+        with open(loc, "w") as f:
+            f.write(payload)
+        if write_type == "o":
+            if VERBOSE:
+                print("OVERWRITE: {}".format(loc))
+            STATS[kind]["overwrote"] += 1
+        elif write_type == "w":
+            print("WRITE: {}".format(loc))
+            STATS[kind]["wrote"] += 1
+    except PermissionError:
+        FAILURES.append(loc)
+        print("FAILED: {}".format(loc))
+        STATS[kind]["failed"] += 1
+
+
 def writeNfoToDisk(location, payload, kind):
     """
     Write NFO files to disk.
@@ -152,19 +175,13 @@ def writeNfoToDisk(location, payload, kind):
 
     if os.path.exists(loc):
         if OVERWRITE_NFO:
-            print("OVERWRITE: {}".format(loc))
-            STATS[kind]["overwrote"] += 1
-            with open(loc, "w") as f:
-                f.write(payload)
+            writeToDisk(loc, payload, kind, "o")
         else:
             if VERBOSE:
                 print("SKIPPING: {}".format(loc))
             STATS[kind]["skipped"] += 1
     else:
-        print("WRITE: {}".format(loc))
-        STATS[kind]["wrote"] += 1
-        with open(loc, "w") as f:
-            f.write(payload)
+        writeToDisk(loc, payload, kind, "w")
 
 
 def writeMovieNfo(dry_run=True):
@@ -257,11 +274,22 @@ def printStats():
     print("Statistics:")
     print("\n--------")
     print("Movies:")
-    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}".format(STATS["MOVIE"]["wrote"], STATS["MOVIE"]["overwrote"], STATS["MOVIE"]["skipped"]))
+    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}\tFailed: {}".format(STATS["MOVIE"]["wrote"], STATS["MOVIE"]["overwrote"], STATS["MOVIE"]["skipped"], STATS["MOVIE"]["failed"]))
     print("Shows:")
-    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}".format(STATS["SHOW"]["wrote"], STATS["SHOW"]["overwrote"], STATS["SHOW"]["skipped"]))
+    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}\tFailed: {}".format(STATS["SHOW"]["wrote"], STATS["SHOW"]["overwrote"], STATS["SHOW"]["skipped"], STATS["SHOW"]["failed"]))
     print("Episodes:")
-    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}".format(STATS["EPISODE"]["wrote"], STATS["EPISODE"]["overwrote"], STATS["EPISODE"]["skipped"]))
+    print("  Wrote: {}\tOverwrote: {}\tSkipped: {}\tFailed: {}".format(STATS["EPISODE"]["wrote"], STATS["EPISODE"]["overwrote"], STATS["EPISODE"]["skipped"], STATS["EPISODE"]["failed"]))
+    print("--------\n")
+
+
+def printFailures():
+    """
+    Print list of any failures.
+    """
+    print("Failures:")
+    print("\n--------")
+    for failure in FAILURES:
+        print("  {}".format(failure))
     print("--------\n")
 
 
@@ -288,4 +316,4 @@ if __name__ == "__main__":
     writeMovieNfo(dry_run=DRY_RUN)
 
     printStats()
-
+    printFailures()
