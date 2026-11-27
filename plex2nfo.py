@@ -3,6 +3,7 @@
 #### PYTHON IMPORTS ################################################################################
 import os
 import sys
+from collections import defaultdict
 from xml.sax.saxutils import escape
 
 
@@ -35,8 +36,9 @@ SHOW_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <year>{year}</year>
 </tvshow>
 """
-EPISODE_NFO_STRING = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<episodedetails>
+EPISODE_NFO_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+"""
+EPISODE_NFO_STRING = """<episodedetails>
     <title>{title}</title>
     <season>{parentIndex}</season>
     <episode>{index}</episode>
@@ -238,14 +240,23 @@ def writeTVnfo(dry_run=True):
                 originallyAvailableAt=formatDate(show.originallyAvailableAt),
                 summary=show.summary
             )
-            if dry_run:
+
+            if not show.locations:
+                # If episodes live in the library root, there's no sensible place to write
+                # tvshow.nfo -- Contributed by: svwhisper
+                print("No folder for {}. Skipping tvshow.nfo".format(show.title))
+            elif dry_run:
                 print(show.locations[0])
                 print(show_nfo_string)
-            if not dry_run:
+            else: # Not a dry run
                 writeNfoToDisk(show.locations[0], show_nfo_string, "SHOW")
 
             # For every episode in a show, grab the metadata I care about and shove it into a NFO
             # format string
+            # Previous versions of this code didn't handle multi-episode files properly. The logic
+            # below that ensures the NFO details for each multi-episode get written to a single file
+            # was contributed by svwhisper.
+            episodes_by_file = defaultdict(list)
             episodes = show.episodes()
             if VERBOSE:
                 print("      Found {} Episodes...".format(len(episodes)))
@@ -255,15 +266,18 @@ def writeTVnfo(dry_run=True):
                 episode_nfo_string = EPISODE_NFO_STRING.format(
                     title=formatText(episode.title),
                     summary=formatText(episode.summary),
-                    originallyAvailableAt=formatDate(show.originallyAvailableAt),
+                    originallyAvailableAt=formatDate(episode.originallyAvailableAt),
                     index=episode.index,
                     parentIndex=episode.parentIndex
                 )
+                episodes_by_file[episode.locations[0]].append(episode_nfo_string)
+            for location, episode_nfo_strings in episodes_by_file.items():
+                episode_nfo_string = EPISODE_NFO_XML + "".join(episode_nfo_strings)
                 if dry_run:
-                    print(os.path.splitext(episode.locations[0])[0] + ".nfo")
+                    print(os.path.splitext(location)[0] + ".nfo")
                     print(episode_nfo_string)
                 if not dry_run:
-                    writeNfoToDisk(episode.locations[0], episode_nfo_string, "EPISODE")
+                    writeNfoToDisk(location, episode_nfo_string, "EPISODE")
     print("--------")
 
 
