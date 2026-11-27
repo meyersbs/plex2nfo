@@ -70,7 +70,7 @@ I welcome pull requests for additional features. Pull requests that contain AI w
 
 My thanks to the following contributors!
 
-- [svwhisper][https://github.com/svwhisper]
+- [svwhisper](https://github.com/svwhisper)
 
 ## License
 
